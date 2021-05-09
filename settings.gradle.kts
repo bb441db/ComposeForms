@@ -8,3 +8,4 @@ dependencyResolutionManagement {
 rootProject.name = "ComposeForms"
 include(":example")
 include(":forms-core")
+include(":forms-errors")

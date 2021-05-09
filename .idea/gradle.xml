@@ -6,23 +6,13 @@
       <GradleProjectSettings>
         <option name="testRunner" value="GRADLE" />
         <option name="distributionType" value="DEFAULT_WRAPPED" />
-        <option name="externalProjectPath" value="$PROJECT_DIR$/../ComposeForms" />
-        <option name="modules">
-          <set>
-            <option value="$PROJECT_DIR$/../ComposeForms" />
-            <option value="$PROJECT_DIR$/../ComposeForms/example" />
-            <option value="$PROJECT_DIR$/../ComposeForms/forms-core" />
-          </set>
-        </option>
-        <option name="resolveModulePerSourceSet" value="false" />
-      </GradleProjectSettings>
-      <GradleProjectSettings>
-        <option name="testRunner" value="GRADLE" />
-        <option name="distributionType" value="DEFAULT_WRAPPED" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/example" />
+            <option value="$PROJECT_DIR$/forms-core" />
+            <option value="$PROJECT_DIR$/forms-errors" />
           </set>
         </option>
         <option name="resolveModulePerSourceSet" value="false" />

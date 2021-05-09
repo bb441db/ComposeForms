@@ -3,7 +3,7 @@ package github.bb441db.forms
 import kotlin.internal.Exact
 import kotlin.reflect.KProperty1
 
-class FormEntryScope<T: Any, V> internal constructor(private val form: FormDataScope<T>, private val prop: KProperty1<T, @Exact V>) {
+class FormEntryScope<T: Any, V> internal constructor(private val form: FormDataScope<T>, val prop: KProperty1<T, @Exact V>) {
     val value = form[prop]
     val mutated by lazy { form.didChange(prop) }
 
