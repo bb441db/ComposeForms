@@ -88,7 +88,7 @@ private fun FormDataScope<Example>.FooFormEntry() {
 }
 
 @Composable
-private fun FormDataScope<Example>.TextFieldFormEntry(prop: KProperty1<Example, String?>, errors: ExampleErrors, ignoreOnMutated: Boolean = false) {
+private fun<T: Any> FormDataScope<T>.TextFieldFormEntry(prop: KProperty1<T, String?>, errors: KeyableError<T>, ignoreOnMutated: Boolean = false) {
     FormEntry(prop = prop) {
         Column {
             OutlinedTextField(
