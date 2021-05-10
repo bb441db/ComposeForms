@@ -19,10 +19,10 @@ import github.bb441db.forms.*
 import kotlin.reflect.KProperty1
 
 @Composable
-fun ExampleForm(initial: Example = Example(false, "", "")) {
+fun ExampleForm(value: FormData<Example>, onValueChange: (FormData<Example>) -> Unit) {
     val (errors, setErrors) = remember { mutableStateOf(ExampleErrors(emptyMap())) }
     Column {
-        Form(initial) {
+        Form(value, onValueChange) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 FooFormEntry()
             }
@@ -120,8 +120,9 @@ private fun<T: Any> FormDataScope<T>.TextFieldFormEntry(prop: KProperty1<T, Stri
 @Composable
 fun ExampleFormPreview() {
     FormsTheme {
+        val (form, setForm) = remember { createMutableFormState(Example(false, "", ""))}
         Box(Modifier.padding(24.dp)) {
-            ExampleForm()
+            ExampleForm(value = form, onValueChange = setForm)
         }
     }
 }

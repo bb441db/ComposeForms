@@ -3,7 +3,7 @@ package github.bb441db.forms
 import kotlin.internal.Exact
 import kotlin.reflect.KProperty1
 
-internal data class FormData<T: Any>(
+data class FormData<T: Any>(
     val value: Commitable<T>,
     val initial: Commitable<T> = value,
 ) {
