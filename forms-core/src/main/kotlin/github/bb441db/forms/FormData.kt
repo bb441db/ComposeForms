@@ -7,7 +7,7 @@ data class FormData<T: Any>(
     val value: Commitable<T>,
     val initial: Commitable<T> = value,
 ) {
-    val data = value.data
+    val data = value.state
 
     internal fun sync(): FormData<T> {
         return this.copy(value = value, initial = value)
@@ -18,19 +18,19 @@ data class FormData<T: Any>(
     }
 
     internal fun didChange(): Boolean {
-        return this.value.data != this.initial.data
+        return this.value.state != this.initial.state
     }
 
     operator fun<V> get(prop: KProperty1<T, @Exact V>): V {
-        return prop.get(value.data)
+        return prop.get(value.state)
     }
 
     internal fun<V> reset(prop: KProperty1<T, @Exact V>): FormData<T> {
-        return this.commit(prop, prop.get(initial.data))
+        return this.commit(prop, prop.get(initial.state))
     }
 
     internal fun<V> didChange(prop: KProperty1<T, @Exact V>): Boolean {
-        return prop.get(initial.data) != prop.get(value.data)
+        return prop.get(initial.state) != prop.get(value.state)
     }
 
     internal fun<V> commit(prop: KProperty1<T, @Exact V>, value:  @Exact V): FormData<T> {

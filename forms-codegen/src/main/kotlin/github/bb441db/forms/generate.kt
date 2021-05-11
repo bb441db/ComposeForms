@@ -16,6 +16,12 @@ data class Options(
     val generateExtension: Boolean,
 )
 
+private val VALUE_TYPE_VARIABLE_NAME = TypeVariableName("Value")
+private const val COMMITABLE_MEMBER_STATE = "state"
+private const val COMMITABLE_PARAMETER_PROP = "prop"
+private const val COMMITABLE_PARAMETER_VALUE = "newValue"
+private const val COMMITABLE_COMMIT_FN = "commit"
+
 private fun commitableTypeName(bound: TypeName): TypeName {
     return ClassName(Commitable::class.java.packageName, Commitable::class.java.simpleName)
         .parameterizedBy(bound)
@@ -23,7 +29,7 @@ private fun commitableTypeName(bound: TypeName): TypeName {
 
 private fun kProperty1TypeName(bound: TypeName): TypeName {
     return ClassName(KProperty1::class.java.packageName, KProperty1::class.java.simpleName)
-        .parameterizedBy(bound, TypeVariableName("V"))
+        .parameterizedBy(bound, VALUE_TYPE_VARIABLE_NAME)
 }
 
 @KotlinPoetMetadataPreview
@@ -50,7 +56,7 @@ fun generate(element: TypeElement, processingEnvironment: ProcessingEnvironment)
         inspector = inspector,
         options = options,
     ) {
-        implementation(element, immutableKmClass, processingEnvironment, inspector)
+        implementation(immutableKmClass)
     }
 }
 
@@ -66,12 +72,22 @@ private fun generate(element: TypeElement,
     val name = element.simpleName.toString()
     val implementationName = "Commitable${name}Impl"
 
-    val commitFunSpec = FunSpec.builder("commit")
+    val commitFunSpec = FunSpec.builder(COMMITABLE_COMMIT_FN)
         .addModifiers(KModifier.OVERRIDE)
-        .addTypeVariable(TypeVariableName("V"))
-        .addParameter("prop", kProperty1TypeName(immutableKmClass.typeName))
-        .addParameter("value", TypeVariableName("V"))
+        .addTypeVariable(VALUE_TYPE_VARIABLE_NAME)
+        .addParameter(COMMITABLE_PARAMETER_PROP, kProperty1TypeName(immutableKmClass.typeName))
+        .addParameter(COMMITABLE_PARAMETER_VALUE, VALUE_TYPE_VARIABLE_NAME)
         .returns(commitableTypeName(immutableKmClass.typeName))
+        .apply {
+            if (immutableKmClass.typeParameters.isNotEmpty()) {
+                addAnnotation(
+                    AnnotationSpec
+                        .builder(Suppress::class)
+                        .addMember("%S", "UNCHECKED_CAST")
+                        .build()
+                )
+            }
+        }
         .addCode(block())
         .build()
 
@@ -82,9 +98,20 @@ private fun generate(element: TypeElement,
                 addModifiers(KModifier.PRIVATE)
             }
         }
+        .addTypeVariables(immutableKmClass.typeVariables)
         .addSuperinterface(commitableTypeName(immutableKmClass.typeName))
-        .primaryConstructor(FunSpec.constructorBuilder().addParameter("data", immutableKmClass.typeName, KModifier.OVERRIDE).build())
-        .addProperty(PropertySpec.builder("data", immutableKmClass.typeName).initializer("data").build())
+        .primaryConstructor(
+            FunSpec
+                .constructorBuilder()
+                .addParameter(COMMITABLE_MEMBER_STATE, immutableKmClass.typeName, KModifier.OVERRIDE)
+                .build()
+        )
+        .addProperty(
+            PropertySpec
+                .builder(COMMITABLE_MEMBER_STATE, immutableKmClass.typeName)
+                .initializer(COMMITABLE_MEMBER_STATE)
+                .build()
+        )
         .addFunction(commitFunSpec)
         .build()
 
@@ -98,6 +125,7 @@ private fun generate(element: TypeElement,
                 addFunction(
                     FunSpec.builder("commitable")
                         .receiver(immutableKmClass.typeName)
+                        .addTypeVariables(immutableKmClass.typeVariables)
                         .returns(commitableTypeName(immutableKmClass.typeName))
                         .addCode("return %N(%L)", implementationName, "this")
                         .build()
@@ -118,11 +146,11 @@ private val ImmutableKmClass.typeName: TypeName get() {
 }
 
 @KotlinPoetMetadataPreview
-private val ImmutableKmType.typeName: TypeName get() {
+private fun ImmutableKmType.typeName(typeParameters: List<ImmutableKmTypeParameter> = listOf()): TypeName {
     val className = when (val classifier = this.classifier) {
         is KmClassifier.Class -> ClassInspectorUtil.createClassName(classifier.name)
         is KmClassifier.TypeAlias -> ClassInspectorUtil.createClassName(classifier.name)
-        is KmClassifier.TypeParameter -> throw Exception("TypeParameter not supported here.")
+        is KmClassifier.TypeParameter -> TypeVariableName(typeParameters.first { it.id == classifier.id }.name)
     }
 
     return className.copy(nullable = this.isNullable)
@@ -165,55 +193,28 @@ private fun stub(): CodeBlock {
 }
 
 @KotlinPoetMetadataPreview
-private fun implementation(
-    element: TypeElement,
-    immutableKmClass: ImmutableKmClass,
-    processingEnvironment: ProcessingEnvironment,
-    inspector: ElementsClassInspector,
-): CodeBlock {
-    val copyFn = element.enclosedElements
-        .filterIsInstance<ExecutableElement>()
-        .first {
-            it.internalName == "copy" && it.returnType == element.asType()
-        }
-    val kmFun = immutableKmClass.functions.first { it.signature == copyFn.jvmMethodSignature(processingEnvironment.typeUtils) }
+private fun implementation(immutableKmClass: ImmutableKmClass, ): CodeBlock {
+    val kmFun = immutableKmClass.functions.first { it.name == "copy" }
     return CodeBlock.builder()
         .beginControlFlow("return when (%N)", "prop")
         .apply {
             for (value in kmFun.valueParameters) {
                 val name = value.name
                 val type = value.type ?: throw Exception("vararg not supported")
-                // CodeGenExample::foo -> copy(data = data.copy(foo = value as Boolean))
-                //    CodeGenExample::bar -> copy(data = data.copy(bar = value as String))
-                //    CodeGenExample::fooBar -> copy(data = data.copy(fooBar = value as String?))
                 addStatement("%T::%N -> %N(%N = %N.%N(%N = %N as %T))",
-                    /* Type name */ element.asClassName(),
+                    /* Type name */ immutableKmClass.typeName,
                     /* Prop name */ name,
                     /* Copy fn name */ "copy",
-                    /* Copy data named param */ "data",
-                    /* data member name */ "data",
+                    /* Copy data named param */ COMMITABLE_MEMBER_STATE,
+                    /* data member name */ COMMITABLE_MEMBER_STATE,
                     /* Copy fn name */ "copy",
                     /* prop member name */ name,
-                    /* prop member name */ "value",
-                    /* prop type name */ type.typeName
+                    /* prop member name */ COMMITABLE_PARAMETER_VALUE,
+                    /* prop type name */ type.typeName(immutableKmClass.typeParameters)
                 )
             }
         }
         .addStatement("else -> %L", "this")
         .endControlFlow()
         .build()
-}
-
-@KotlinPoetMetadataPreview
-fun ImmutableKmFunction.paramsWithTypes(): List<Pair<ImmutableKmValueParameter, ImmutableKmTypeParameter>> {
-    return this.valueParameters.mapIndexed { index, valueParameter ->
-        valueParameter to typeParameters[index]
-    }
-}
-
-@KotlinPoetMetadataPreview
-fun ExecutableElement.paramsWithTypes(): List<Pair<VariableElement, TypeParameterElement>> {
-    return this.parameters.mapIndexed { index, valueParameter ->
-        valueParameter to typeParameters[index]
-    }
 }
