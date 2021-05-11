@@ -7,5 +7,7 @@ dependencyResolutionManagement {
 }
 rootProject.name = "ComposeForms"
 include(":example")
-include(":forms-core")
+include(":forms-compose")
 include(":forms-errors")
+include(":forms-codegen")
+include(":forms-core")

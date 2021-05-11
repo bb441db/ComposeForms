@@ -3,7 +3,7 @@ package github.bb441db.forms
 import kotlin.internal.Exact
 import kotlin.reflect.KProperty1
 
-class FormDataScope<T: Any> internal constructor(private val value: FormData<T>, private val setValue: (FormData<T>) -> Unit) {
+class FormDataScope<T: Any> (private val value: FormData<T>, private val setValue: (FormData<T>) -> Unit) {
     /**
      * Current states data.
      */

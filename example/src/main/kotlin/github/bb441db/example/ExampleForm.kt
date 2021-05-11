@@ -14,6 +14,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import github.bb441db.example.data.Example
 import github.bb441db.example.data.ExampleErrors
+import github.bb441db.example.data.commitable
 import github.bb441db.example.ui.theme.FormsTheme
 import github.bb441db.forms.*
 import kotlin.reflect.KProperty1
@@ -120,7 +121,7 @@ private fun<T: Any> FormDataScope<T>.TextFieldFormEntry(prop: KProperty1<T, Stri
 @Composable
 fun ExampleFormPreview() {
     FormsTheme {
-        val (form, setForm) = remember { createMutableFormState(Example(false, "", ""))}
+        val (form, setForm) = remember { createMutableFormState(Example(false, "", "").commitable())}
         Box(Modifier.padding(24.dp)) {
             ExampleForm(value = form, onValueChange = setForm)
         }

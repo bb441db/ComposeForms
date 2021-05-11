@@ -48,7 +48,6 @@ android {
 dependencies {
     implementation("androidx.compose.ui:ui:${rootProject.extra["compose_version"]}")
     implementation(project(":forms-core"))
-    implementation(project(":forms-compose"))
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.2")

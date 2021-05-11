@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import github.bb441db.example.data.Example
+import github.bb441db.example.data.commitable
 import github.bb441db.example.ui.theme.FormsTheme
 import github.bb441db.forms.createMutableFormState
 
@@ -24,7 +25,7 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     topBar = { FormsTopBar() },
                 ) {
-                    val (form, setForm) = remember { createMutableFormState(Example(false, "", "")) }
+                    val (form, setForm) = remember { createMutableFormState(Example(false, "", "").commitable()) }
                     Box(Modifier.padding(horizontal = 24.dp, vertical = 12.dp)) {
                         ExampleForm(value = form, onValueChange = setForm)
                     }
