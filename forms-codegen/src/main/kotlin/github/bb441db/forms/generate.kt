@@ -1,9 +1,10 @@
+@file:OptIn(KotlinPoetMetadataPreview::class)
+
 package github.bb441db.forms
 
 import com.squareup.kotlinpoet.*
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
-import com.squareup.kotlinpoet.classinspector.elements.ElementsClassInspector
 import com.squareup.kotlinpoet.metadata.*
 import com.squareup.kotlinpoet.metadata.specs.internal.ClassInspectorUtil
 import kotlinx.metadata.*
@@ -14,6 +15,8 @@ import kotlin.reflect.KProperty1
 
 data class Options(
     val generateExtension: Boolean,
+    val fileName: String,
+    val className: String,
 )
 
 private val VALUE_TYPE_VARIABLE_NAME = TypeVariableName("Value")
@@ -32,45 +35,36 @@ private fun kProperty1TypeName(bound: TypeName): TypeName {
         .parameterizedBy(bound, VALUE_TYPE_VARIABLE_NAME)
 }
 
-@KotlinPoetMetadataPreview
 fun generate(element: TypeElement, processingEnvironment: ProcessingEnvironment): FileSpec {
     val immutableKmClass = element.toImmutableKmClass()
     if (!immutableKmClass.isData) {
         processingEnvironment.messager.printMessage(Diagnostic.Kind.ERROR, "Only data classes are supported", element)
     }
 
-    val inspector = ElementsClassInspector.create(
-        processingEnvironment.elementUtils,
-        processingEnvironment.typeUtils
-    ) as ElementsClassInspector
-
     val annotation = element.getAnnotation(github.bb441db.forms.annotations.Commitable::class.java)
     val options = Options(
-        generateExtension = annotation.generateExtension
+        generateExtension = annotation.generateExtension,
+        fileName = if (annotation.fileName.isNotEmpty()) annotation.fileName else element.simpleName.toString(),
+        className = if (annotation.className.isNotEmpty()) annotation.className else "Commitable${element.simpleName}Impl"
     )
 
     return generate(
         element = element,
         immutableKmClass = immutableKmClass,
         processingEnvironment = processingEnvironment,
-        inspector = inspector,
         options = options,
     ) {
         implementation(immutableKmClass)
     }
 }
 
-@KotlinPoetMetadataPreview
 private fun generate(element: TypeElement,
                      immutableKmClass: ImmutableKmClass,
                      processingEnvironment: ProcessingEnvironment,
-                     inspector: ElementsClassInspector,
                      options: Options,
                      block: () -> CodeBlock = ::stub,
 ): FileSpec {
     val packageName = processingEnvironment.elementUtils.getPackageOf(element).qualifiedName.toString()
-    val name = element.simpleName.toString()
-    val implementationName = "Commitable${name}Impl"
 
     val commitFunSpec = FunSpec.builder(COMMITABLE_COMMIT_FN)
         .addModifiers(KModifier.OVERRIDE)
@@ -91,7 +85,7 @@ private fun generate(element: TypeElement,
         .addCode(block())
         .build()
 
-    val typeSpec = TypeSpec.classBuilder(implementationName)
+    val typeSpec = TypeSpec.classBuilder(options.className)
         .addModifiers(KModifier.DATA)
         .apply {
             if (options.generateExtension) {
@@ -113,29 +107,23 @@ private fun generate(element: TypeElement,
                 .build()
         )
         .addFunction(commitFunSpec)
+        .addFunction(generateToString())
+        .addFunction(generateEquals())
         .build()
 
 
 
     return FileSpec
-        .builder(packageName, implementationName)
+        .builder(packageName, options.fileName)
         .addType(typeSpec)
         .apply {
             if (options.generateExtension) {
-                addFunction(
-                    FunSpec.builder("commitable")
-                        .receiver(immutableKmClass.typeName)
-                        .addTypeVariables(immutableKmClass.typeVariables)
-                        .returns(commitableTypeName(immutableKmClass.typeName))
-                        .addCode("return %N(%L)", implementationName, "this")
-                        .build()
-                )
+                addFunction(generateCommitableExtension(immutableKmClass, options))
             }
         }
         .build()
 }
 
-@KotlinPoetMetadataPreview
 private val ImmutableKmClass.typeName: TypeName get() {
     val typeVariables = this.typeVariables
     return if (typeVariables.isNotEmpty()) {
@@ -145,7 +133,6 @@ private val ImmutableKmClass.typeName: TypeName get() {
     }
 }
 
-@KotlinPoetMetadataPreview
 private fun ImmutableKmType.typeName(typeParameters: List<ImmutableKmTypeParameter> = listOf()): TypeName {
     val className = when (val classifier = this.classifier) {
         is KmClassifier.Class -> ClassInspectorUtil.createClassName(classifier.name)
@@ -156,9 +143,7 @@ private fun ImmutableKmType.typeName(typeParameters: List<ImmutableKmTypeParamet
     return className.copy(nullable = this.isNullable)
 }
 
-@KotlinPoetMetadataPreview
 private val ImmutableKmClass.className: ClassName get() = ClassInspectorUtil.createClassName(this.name)
-@KotlinPoetMetadataPreview
 private val ImmutableKmClass.typeVariables: List<TypeVariableName> get() = this.typeParameters.map {
     val bounds = it.bounds
     if (bounds == null) {
@@ -168,7 +153,6 @@ private val ImmutableKmClass.typeVariables: List<TypeVariableName> get() = this.
     }
 }
 
-@KotlinPoetMetadataPreview
 private val ImmutableKmTypeParameter.bounds: TypeName?
     get() {
         val first = this.upperBounds.firstOrNull() ?: return null
@@ -187,13 +171,46 @@ private fun KmVariance.asKModifier(): KModifier? {
     }
 }
 
-@KotlinPoetMetadataPreview
 private fun stub(): CodeBlock {
     return CodeBlock.of("TODO(\"Stub\"")
 }
 
-@KotlinPoetMetadataPreview
-private fun implementation(immutableKmClass: ImmutableKmClass, ): CodeBlock {
+private fun generateEquals(): FunSpec {
+    return FunSpec
+        .builder("equals")
+        .addModifiers(KModifier.OVERRIDE)
+        .addParameter("other", ANY.copy(nullable = true))
+        .returns(BOOLEAN)
+        .addCode(
+            CodeBlock
+                .builder()
+                .beginControlFlow("if (%N is %T)", "other", commitableTypeName(STAR))
+                .addStatement("return %N == %N.%N", COMMITABLE_MEMBER_STATE, "other", COMMITABLE_MEMBER_STATE)
+                .endControlFlow()
+                .addStatement("return false")
+                .build()
+        )
+        .build()
+}
+
+private fun generateToString(): FunSpec {
+    return FunSpec
+        .builder("toString")
+        .addModifiers(KModifier.OVERRIDE)
+        .addCode(CodeBlock.of("return %N.%M()", COMMITABLE_MEMBER_STATE, MemberName("", "toString")))
+        .build()
+}
+
+private fun generateCommitableExtension(immutableKmClass: ImmutableKmClass, options: Options): FunSpec {
+    return FunSpec.builder("commitable")
+        .receiver(immutableKmClass.typeName)
+        .addTypeVariables(immutableKmClass.typeVariables)
+        .returns(commitableTypeName(immutableKmClass.typeName))
+        .addCode("return %N(%L)", options.className, "this")
+        .build()
+}
+
+private fun implementation(immutableKmClass: ImmutableKmClass): CodeBlock {
     val kmFun = immutableKmClass.functions.first { it.name == "copy" }
     return CodeBlock.builder()
         .beginControlFlow("return when (%N)", "prop")

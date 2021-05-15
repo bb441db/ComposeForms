@@ -1,3 +1,5 @@
+@file:OptIn(KotlinPoetMetadataPreview::class)
+
 package github.bb441db.forms
 
 import com.squareup.kotlinpoet.FileSpec
@@ -10,7 +12,6 @@ import javax.lang.model.SourceVersion
 import javax.lang.model.element.TypeElement
 
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
-@KotlinPoetMetadataPreview
 class FormsProcessor : AbstractProcessor() {
     override fun process(elements: MutableSet<out TypeElement>, env: RoundEnvironment): Boolean {
         env
