@@ -7,6 +7,7 @@ import com.tschuchort.compiletesting.KotlinCompilation
 import com.tschuchort.compiletesting.SourceFile
 import org.intellij.lang.annotations.Language
 import java.io.ByteArrayOutputStream
+import java.io.File
 
 abstract class AbstractCompileTests {
     fun compile(vararg files: SourceFile, debug: Boolean = DEBUG): KotlinCompilation.Result {
@@ -33,6 +34,10 @@ abstract class AbstractCompileTests {
 
     fun compile(fileName: String, @Language("kotlin") source: String, debug: Boolean = DEBUG): KotlinCompilation.Result {
         return compile(SourceFile.kotlin("$fileName.kt", source, trimIndent = true), debug = debug)
+    }
+
+    fun compile(path: File): KotlinCompilation.Result {
+        return compile(SourceFile.fromPath(path))
     }
 
     fun KotlinCompilation.Result.sourceWithName(name: String): String {
